@@ -21,9 +21,9 @@ import multimedia.visca.*
 import org.slf4j.event.Level
 import java.time.Duration
 
-fun main(args: Array<String>): Unit {
+fun main(args: Array<String>) {
     val cmd = false
-    val viscaService = ViscaService(viscaAdapter = DumbViscaAdapterImpl("COM5")).apply {
+    val viscaService = ViscaService(viscaAdapter = ViscaAdapterImpl("COM5")).apply {
         start()
     }
     if (!cmd) {
@@ -83,7 +83,7 @@ fun Application.module(viscaService: ViscaService) {
     routing {
         post("/commands") {
 
-            val msgs = call.receive<List<LinkedHashMap<String, Any>>>().map { it.getMsg() }
+            val msgs = call.receive<List<Json>>().map { it.getMsg() }
             msgs.forEach { viscaService.executeMsg(it) }
             call.respond(HttpStatusCode.OK)
         }
@@ -91,20 +91,40 @@ fun Application.module(viscaService: ViscaService) {
         get {
             call.respond(commands.keys)
         }
+
         get("/responses") {
             call.respond(viscaService.responses)
         }
+        post("/macros") {
+            val macro = call.receive<Json>().getMacro()
+            viscaService.macros.putIfAbsent(macro.name, macro)
+            call.respond(HttpStatusCode.OK)
+        }
+        get("/macros") {
+            call.respond(viscaService.macros.values)
+        }
+        post("/macros/{name}") {
+            val name = call.parameters["name"]!!
+            viscaService.executeMacro(name)
+            call.respond(HttpStatusCode.OK)
+        }
+
 
     }
 }
+typealias Json = LinkedHashMap<String, Any>
+private fun Json.getMacro() = Macro(name = get("name") as String,
+    messages = getList("messages").map { it.getMsg() })
 
-private fun LinkedHashMap<String, Any>.getMsg() =
+private fun Json.getList(name: String) = get(name) as List<Json>
+private fun Json.getMsg() =
     Msg(
         source = getByte("source") ?: 0,
         content = get("content") as String,
         dest = getByte("dest") ?: 1,
         p = getByte("p"),
-        t = getByte("t")
+        t = getByte("t"),
+        delay = get("delay") as Int?
     )
 
 private fun LinkedHashMap<String, Any>.getByte(key: String) = get(key)?.let { it as Int }?.toByte()

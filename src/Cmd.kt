@@ -15,9 +15,13 @@ class Cmd(private val viscaService: ViscaService) {
         while (true) {
             printMenu()
             val command = readCmd()
-            val msg = Msg(source = 0, dest = 1, content = command, p = 1, t = 1)
+            val msg = Msg(source = 0, dest = 3, content = command, p = 4, t = 1)
             viscaService.executeMsg(msg)
         }
+    }
+    private fun params(){
+        println("Wprowadz p,t,dest")
+        val params = readLine()?.split(",")
     }
 
     private fun menu() = commands.keys
